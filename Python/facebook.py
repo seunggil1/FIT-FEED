@@ -4,6 +4,8 @@ from selenium.webdriver.common.keys import Keys
 import datetime
 import time
 import re
+import json
+
 webdriverLocation = 'Python\\Chrome_88.0.4324.96\\chromedriver.exe'
 
 options = webdriver.ChromeOptions()
@@ -14,6 +16,7 @@ options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 options.add_experimental_option("prefs",{"profile.default_content_setting_values.notifications" : 2})
 driver = webdriver.Chrome(webdriverLocation, chrome_options = options)
 
+#페이스북 아이디 비번
 email = ''
 password = ''
 
@@ -36,15 +39,51 @@ while True:
         break
 html = driver.page_source
 soup = BS4(html,'html.parser')
+
+# f = open("Python\\Facebook.html", 'r', encoding="utf8")
+# soup = BS4(f,'html.parser')
+
+data = []
 content_list = soup.find_all(attrs={'data-pagelet': re.compile('^FeedUnit')})
+for content in content_list:
+    # 그룹 페이지에서 글쓰는건 못불러옴.
+    pageName = content.find('strong')
+    if pageName:
+        pageName = pageName.getText()
+    else :
+        pageName = ""
+    pageImg = content.find('g',attrs={'mask':re.compile(r'jsc_.+?\)')}).find('image')
+    if pageImg:
+        pageImg = pageImg.attrs['xlink:href']
+    else:
+        pageImg = ""
 
-# 페이지 사진
-# <g mask="url(#jsc_c_3p)">
-# 페이지 제목
-# <strong><span>서머너즈 워: 백년전쟁</span></strong>
+    mainText = ""
+    mainImg = []
+    for textIter in content.find_all('div',attrs={'dir':'auto', 'style':re.compile('text-align:.*')}):
+        mainText += textIter.getText() + '\n'
+    for imgIter in content.find_all('img',attrs={'alt': re.compile('.+')}):
+        mainImg.append({
+            "src" : imgIter.attrs['src'],
+            # "height": imgIter.attrs['height'],
+            # "width" : imgIter.attrs['width']
+        })
+    dataIter = {
+        "pageName" : pageName,
+        "pageImage" : {
+            "src" : pageImg,
+            # 40 -> 40px
+            "height": 40,
+            "width" : 40,
+        },
+        "description" : mainText,
+        "media" : mainImg
+    }
+    data.append(dataIter)
 
-# 본문
-# <div dir="auto" style="text-align: start;">
-# 이미지
-# <img alt="" class=
-input('')
+jsonData = {}
+jsonData["data"] = data
+
+with open("facebook.json", "w") as json_file:
+    json.dump(data, json_file, indent=4, ensure_ascii = False)
+
